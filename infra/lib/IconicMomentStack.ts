@@ -3,6 +3,9 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
+import * as sns_subs from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as lambda_event_sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
@@ -25,6 +28,19 @@ export class IconicMomentStack extends cdk.Stack {
     const photoUploadedTopic = new sns.Topic(this, 'PhotoUploadedTopic', {
       topicName: 'iconic-photo-uploaded',
     });
+
+    // ============================================
+    // SQS Queue
+    // ============================================
+    const resizeQueue = new sqs.Queue(this, 'ResizeQueue', {
+      queueName: 'iconic-resize-queue',
+      visibilityTimeout: cdk.Duration.seconds(60)
+    })
+
+    // Subscribe the SQS queue to the SNS topic
+    photoUploadedTopic.addSubscription(
+      new sns_subs.SqsSubscription(resizeQueue)
+    );
 
     // ============================================
     // Lambda Function for S3 Ingestion
@@ -51,6 +67,21 @@ export class IconicMomentStack extends cdk.Stack {
     imageBucket.grantRead(ingestionLambda);
     photoUploadedTopic.grantPublish(ingestionLambda);
 
+    // ============================================
+    // Lambda Function for Image Resizing
+    // ============================================
+    const resizePhoto = new lambda.Function(this, 'ResizeLambda', {
+      functionName: 'resize-photo',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('../backend/lambdas/resize')
+    })
+
+    // Wire SQS queue as event source for the resize Lambda
+    resizePhoto.addEventSource(
+      new lambda_event_sources.SqsEventSource(resizeQueue, { batchSize: 1 })
+    )
+
     // Output the bucket name as a CloudFormation output
     new cdk.CfnOutput(this, 'BucketName', {
       value: imageBucket.bucketName,
@@ -62,5 +93,8 @@ export class IconicMomentStack extends cdk.Stack {
       value: photoUploadedTopic.topicArn 
     });
 
+    new cdk.CfnOutput(this, 'ResizeQueueUrl', {
+      value: resizeQueue.queueUrl,
+    })
   }
 }
