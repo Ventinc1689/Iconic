@@ -46,7 +46,7 @@ def handler(event, context):
             buffer.seek(0) # Reset the buffer position to the beginning
 
             # Upload the resized image back to the S3 bucket 
-            filename = key.split('/')[-1].replace('.jpg', '').replace('.jpeg', '').replace('.png', '')
+            filename = key.split('/')[-1].replace('.jpg', '').replace('.jpeg', '').replace('.png', '').replace('.avif', '') 
             thumbnail_key = f"thumbnails/{filename}_{width}w.jpg" # Create a new key for the thumbnail
 
             s3.put_object(

@@ -8,6 +8,7 @@ import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda_event_sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
 
 export class IconicMomentStack extends cdk.Stack {
@@ -54,7 +55,7 @@ export class IconicMomentStack extends cdk.Stack {
 
 
     // ============================================
-    // SQS Queue
+    // SQS Resize Queue
     // ============================================
 
     // Create a dead-letter queue for failed resize attempts
@@ -77,6 +78,12 @@ export class IconicMomentStack extends cdk.Stack {
       new sns_subs.SqsSubscription(resizeQueue)
     );
 
+
+
+    // ============================================
+    // SQS Moderate Queue
+    // ============================================
+
     // Create a separate DLQ for the moderation workflow (if needed)
     const moderateDLQ = new sqs.Queue(this, 'ModerateDLQ', {
       queueName: 'iconic-moderate-dlq',
@@ -95,6 +102,32 @@ export class IconicMomentStack extends cdk.Stack {
     // Subscribe the moderation SQS queue to the SNS topic
     photoUploadedTopic.addSubscription(
       new sns_subs.SqsSubscription(moderateQueue)
+    );
+
+
+
+    // ============================================
+    // SQS Caption Queue
+    // ============================================
+
+    // Create a DLQ for captioning tasks 
+    const captionDLQ = new sqs.Queue(this, 'CaptionDLQ', {
+      queueName: 'iconic-caption-dlq',
+    })
+
+    // Create the SQS queue for captioning tasks, with the DLQ configured
+    const captionQueue = new sqs.Queue(this, 'CaptionQueue', {
+      queueName: 'iconic-caption-queue',
+      visibilityTimeout: cdk.Duration.seconds(120),
+      deadLetterQueue: {
+        queue: captionDLQ,
+        maxReceiveCount: 3,
+      },
+    })
+
+    // Subscribe the captioning SQS queue to the SNS topic
+    photoUploadedTopic.addSubscription(
+      new sns_subs.SqsSubscription(captionQueue)
     );
 
 
@@ -194,6 +227,40 @@ export class IconicMomentStack extends cdk.Stack {
       actions: ['rekognition:DetectModerationLabels'],
       resources: ['*'],
     }));
+
+    // ============================================
+    // Lambda — Caption worker
+    // ============================================
+    const captionLambda = new lambda.Function(this, 'CaptionLambda', {
+      functionName: 'caption-photo',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('../backend/lambdas/caption'),
+      timeout: cdk.Duration.seconds(120),
+      environment: {
+        RAW_BUCKET: imageBucket.bucketName,
+        PHOTO_TABLE: photoTable.tableName,
+      },
+    });
+
+    // Wire SQS queue as event source for the caption Lambda
+    captionLambda.addEventSource(
+      new lambda_event_sources.SqsEventSource(captionQueue, { batchSize: 1 })
+    );
+
+    // Permissions for the caption Lambda
+    imageBucket.grantRead(captionLambda);
+    photoTable.grantWriteData(captionLambda);
+
+    // Allow caption lambda to call Bedrock for image captioning
+    captionLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: [
+        'arn:aws:bedrock:*::foundation-model/*anthropic.claude-sonnet-4-5-20250929-v1:0',
+        'arn:aws:bedrock:*:*:inference-profile/*anthropic.claude-sonnet-4-5-20250929-v1:0',
+      ]
+    }))
+
 
 
     // ============================================
