@@ -36,10 +36,10 @@ def handler(event, context):
 
         # Build the Bedrock request
         bedrock_response = bedrock.invoke_model(
-            modelId = MODEL_ID,
+            modelId=MODEL_ID,
             body=json.dumps({
                 'anthropic_version': 'bedrock-2023-05-31',
-                'max_tokens': 300,
+                'max_tokens': 500,
                 'messages': [
                     {
                         'role': 'user',
@@ -54,9 +54,16 @@ def handler(event, context):
                             },
                             {
                                 'type': 'text',
-                                'text': (
-                                    'You are a football expert writing captions for a gallery of iconic soccer moments. Look at this image and write a compelling 2-sentence caption that describes what is happening and why this moment matters historically. Be specific about players, teams, and the significance of the moment. If you cannot identify the specific moment, describe what you see and its emotional impact.'
-                                ),
+                                'text': '''You are a football expert analyzing an iconic soccer moment. Look at this image and respond with only a JSON object. Do not wrap the JSON in markdown code blocks. Return only the raw JSON object.:
+                                    {
+                                        "title": "short memorable name for this moment",
+                                        "player": "main player(s) involved",
+                                        "match": "The two teams involved",
+                                        "competition": "competition name",
+                                        "year": "year this moment happened",
+                                        "caption": "2-3 sentence caption describing what happened and why it matters historically"
+                                    }
+                                If you cannot identify specific details, make your best guess from visual cues. Return only the JSON, no markdown, no explanation. '''
                             },
                         ],
                     }
@@ -66,16 +73,41 @@ def handler(event, context):
         
         # Parse the response from Bedrock
         result = json.loads(bedrock_response['body'].read())
-        caption = result['content'][0]['text']
+        raw_text = result['content'][0]['text'].strip()
 
-        print(f"Generated caption for photo_id={photo_id}: {caption[:80]}...")
+        # Strip markdown code fences if the model wrapped its output
+        if raw_text.startswith('```'):
+            raw_text = raw_text.split('\n', 1)[-1]  # drop the opening ```json line
+            raw_text = raw_text.rsplit('```', 1)[0].strip()
+
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError:
+            data = {'caption': raw_text}
 
         # Save the caption to DynamoDB
         table.update_item(
             Key={'photo_id': photo_id},
-            UpdateExpression='SET caption = :c, caption_status = :cs',
+            UpdateExpression='''SET
+                caption = :caption,
+                title = :title,
+                player = :player,
+                #m = :match,
+                competition = :competition,
+                #y = :year,
+                caption_status = :cs
+            ''',
+            ExpressionAttributeNames={
+                '#m': 'match',  
+                '#y': 'year',  
+            },
             ExpressionAttributeValues={
-                ':c':  caption,
+                ':caption': data.get('caption', ''),
+                ':title': data.get('title', 'Untitled Moment'),
+                ':player': data.get('player', 'Unknown'),
+                ':match': data.get('match', ''),
+                ':competition': data.get('competition', ''),
+                ':year': data.get('year', 0),
                 ':cs': 'done',
             },
         )
