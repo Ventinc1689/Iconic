@@ -6,6 +6,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sns_subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda_event_sources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
@@ -22,6 +23,12 @@ export class IconicMomentStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+    const resizedImageBucket = new s3.Bucket(this, 'ResizedImageBucket', {
+      bucketName: 'iconic-moment-resized-image-bucket',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
     // ============================================
     // SNS Topic
     // ============================================
@@ -32,9 +39,17 @@ export class IconicMomentStack extends cdk.Stack {
     // ============================================
     // SQS Queue
     // ============================================
+    const resizeDLQ = new sqs.Queue(this, 'ResizeDLQ', {
+      queueName: 'iconic-resize-dlq',
+    });
+
     const resizeQueue = new sqs.Queue(this, 'ResizeQueue', {
       queueName: 'iconic-resize-queue',
-      visibilityTimeout: cdk.Duration.seconds(60)
+      visibilityTimeout: cdk.Duration.seconds(60),
+      deadLetterQueue: {
+        queue: resizeDLQ,
+        maxReceiveCount: 3,
+      },
     })
 
     // Subscribe the SQS queue to the SNS topic
@@ -74,18 +89,42 @@ export class IconicMomentStack extends cdk.Stack {
       functionName: 'resize-photo',
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
-      code: lambda.Code.fromAsset('../backend/lambdas/resize')
-    })
+      code: lambda.Code.fromAsset('../backend/lambdas/resize', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output --platform manylinux2014_x86_64 --only-binary=:all: && cp -r . /asset-output',
+          ],
+        },
+      }),
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 512,
+      environment: {
+        RAW_BUCKET: imageBucket.bucketName,
+        RESIZED_BUCKET: resizedImageBucket.bucketName,
+      },
+    });
 
     // Wire SQS queue as event source for the resize Lambda
     resizePhoto.addEventSource(
       new lambda_event_sources.SqsEventSource(resizeQueue, { batchSize: 1 })
     )
 
+    // Permissions for the resize Lambda
+    imageBucket.grantRead(resizePhoto);
+    resizedImageBucket.grantPut(resizePhoto);
+
     // Output the bucket name as a CloudFormation output
     new cdk.CfnOutput(this, 'BucketName', {
       value: imageBucket.bucketName,
       description: 'S3 Bucket for storing soccer iconic moment images',
+    })
+
+    // Output the resized bucket name as a CloudFormation output
+    new cdk.CfnOutput(this, 'ResizedBucketName', {
+      value: resizedImageBucket.bucketName,
+      description: 'S3 Bucket for storing resized soccer iconic moment images',
     })
 
     // Output the SNS topic ARN as a CloudFormation output
