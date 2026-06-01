@@ -264,6 +264,42 @@ export class IconicMomentStack extends cdk.Stack {
 
 
     // ============================================
+    // Lambda — photo retrieval API worker
+    // ============================================
+    const getPhotosLambda = new lambda.Function(this, 'GetPhotosLambda', {
+      functionName: 'get-photos',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('../backend/lambdas/photo'),
+      environment: {
+        PHOTO_TABLE: photoTable.tableName
+      },
+    });
+
+    photoTable.grantReadData(getPhotosLambda);
+
+
+
+    // ============================================
+    // API Gateway
+    // ============================================
+    const api = new apigateway.RestApi(this, 'IconicAPI', {
+      restApiName: 'iconic-api',
+      description: 'API for retrieving iconic moment photos and metadata',
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type'],
+      },
+    });
+
+    // GET /photos
+    const photos = api.root.addResource('photos');
+    photos.addMethod('GET', new apigateway.LambdaIntegration(getPhotosLambda));
+
+
+
+    // ============================================
     // Outputs
     // ============================================
 
@@ -277,6 +313,11 @@ export class IconicMomentStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ResizedBucketName', {
       value: resizedImageBucket.bucketName,
       description: 'S3 Bucket for storing resized soccer iconic moment images',
+    })
+
+    new cdk.CfnOutput(this, 'ApiUrl', {
+      value: api.url + 'photos',
+      description: 'URL for the approved photos API endpoint',
     })
   }
 }
