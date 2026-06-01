@@ -7,12 +7,13 @@ import * as sns_subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda_event_sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class IconicMomentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
 
     // ============================================
     // S3 Bucket 
@@ -29,6 +30,20 @@ export class IconicMomentStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+
+
+    // ============================================
+    // DynamoDB Table
+    // ============================================
+    const photoTable = new dynamodb.Table(this, 'PhotoTable', {
+      tableName: 'iconic-photos',
+      partitionKey: { name: 'photo_id', type: dynamodb.AttributeType.STRING },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    })
+
+
+
     // ============================================
     // SNS Topic
     // ============================================
@@ -36,13 +51,18 @@ export class IconicMomentStack extends cdk.Stack {
       topicName: 'iconic-photo-uploaded',
     });
 
+
+
     // ============================================
     // SQS Queue
     // ============================================
+
+    // Create a dead-letter queue for failed resize attempts
     const resizeDLQ = new sqs.Queue(this, 'ResizeDLQ', {
       queueName: 'iconic-resize-dlq',
     });
 
+    // Create the main SQS queue for resize tasks, with the DLQ configured
     const resizeQueue = new sqs.Queue(this, 'ResizeQueue', {
       queueName: 'iconic-resize-queue',
       visibilityTimeout: cdk.Duration.seconds(60),
@@ -57,6 +77,28 @@ export class IconicMomentStack extends cdk.Stack {
       new sns_subs.SqsSubscription(resizeQueue)
     );
 
+    // Create a separate DLQ for the moderation workflow (if needed)
+    const moderateDLQ = new sqs.Queue(this, 'ModerateDLQ', {
+      queueName: 'iconic-moderate-dlq',
+    })
+
+    // Create the SQS queue for moderation tasks, with the DLQ configured
+    const moderateQueue = new sqs.Queue(this, 'ModerateQueue', {
+      queueName: 'iconic-moderate-queue',
+      visibilityTimeout: cdk.Duration.seconds(60),
+      deadLetterQueue: {
+        queue: moderateDLQ,
+        maxReceiveCount: 3,
+      },
+    })
+
+    // Subscribe the moderation SQS queue to the SNS topic
+    photoUploadedTopic.addSubscription(
+      new sns_subs.SqsSubscription(moderateQueue)
+    );
+
+
+
     // ============================================
     // Lambda Function for S3 Ingestion
     // ============================================
@@ -67,6 +109,7 @@ export class IconicMomentStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/lambdas/ingestion'),
       environment: {
         PHOTO_UPLOADED_TOPIC_ARN: photoUploadedTopic.topicArn,
+        PHOTO_TABLE: photoTable.tableName,
       }
     });
 
@@ -81,6 +124,9 @@ export class IconicMomentStack extends cdk.Stack {
     // ============================================
     imageBucket.grantRead(ingestionLambda);
     photoUploadedTopic.grantPublish(ingestionLambda);
+    photoTable.grantWriteData(ingestionLambda);
+
+
 
     // ============================================
     // Lambda Function for Image Resizing
@@ -103,6 +149,7 @@ export class IconicMomentStack extends cdk.Stack {
       environment: {
         RAW_BUCKET: imageBucket.bucketName,
         RESIZED_BUCKET: resizedImageBucket.bucketName,
+        PHOTO_TABLE: photoTable.tableName,
       },
     });
 
@@ -114,6 +161,44 @@ export class IconicMomentStack extends cdk.Stack {
     // Permissions for the resize Lambda
     imageBucket.grantRead(resizePhoto);
     resizedImageBucket.grantPut(resizePhoto);
+    photoTable.grantWriteData(resizePhoto);
+
+
+
+    // ============================================
+    // Lambda — Moderate worker
+    // ============================================
+    const moderateLambda = new lambda.Function(this, 'ModerateLambda', {
+      functionName: 'moderate-photo',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('../backend/lambdas/moderate'),
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        RAW_BUCKET: imageBucket.bucketName,
+        PHOTO_TABLE: photoTable.tableName,
+      },
+    });
+
+    // Wire SQS queue as event source for the moderate Lambda
+    moderateLambda.addEventSource(
+      new lambda_event_sources.SqsEventSource(moderateQueue, { batchSize: 1 })
+    )
+
+    // Permissions for the moderate Lambda
+    imageBucket.grantRead(moderateLambda);
+    photoTable.grantWriteData(moderateLambda);
+
+    // Allow moderate lambda to call Rekognition
+    moderateLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['rekognition:DetectModerationLabels'],
+      resources: ['*'],
+    }));
+
+
+    // ============================================
+    // Outputs
+    // ============================================
 
     // Output the bucket name as a CloudFormation output
     new cdk.CfnOutput(this, 'BucketName', {
@@ -125,15 +210,6 @@ export class IconicMomentStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ResizedBucketName', {
       value: resizedImageBucket.bucketName,
       description: 'S3 Bucket for storing resized soccer iconic moment images',
-    })
-
-    // Output the SNS topic ARN as a CloudFormation output
-    new cdk.CfnOutput(this, 'TopicArn', { 
-      value: photoUploadedTopic.topicArn 
-    });
-
-    new cdk.CfnOutput(this, 'ResizeQueueUrl', {
-      value: resizeQueue.queueUrl,
     })
   }
 }
