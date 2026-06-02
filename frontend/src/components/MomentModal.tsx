@@ -114,24 +114,14 @@ Answer questions about this moment with passion and detail. Keep responses conci
           </svg>
         </button>
 
-        {/* Image area */}
-        <div className={`relative h-52 flex-shrink-0 ${moment.color} flex items-center justify-center`}>
-          <span className="text-7xl select-none">{moment.emoji}</span>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-transparent to-transparent" />
-          <span className="absolute bottom-3 left-4 text-xs font-mono text-white/60 bg-black/50 px-2 py-0.5 rounded">
-            {moment.year}
-          </span>
-          <span className="absolute top-3 left-4 text-xs text-white/60 bg-black/50 px-2 py-0.5 rounded">
-            {moment.competition}
-          </span>
-        </div>
-
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
           {/* Moment info */}
           <div className="px-6 pt-4 pb-4 border-b border-white/10">
             <h2 className="font-serif text-2xl font-bold text-white mb-1">{moment.title}</h2>
             <p className="text-sm text-white/50 mb-4">
+              <span className="text-white/40 text-xs mr-2">{moment.competition} · {moment.year}</span>
+              <br />
               <span className="font-medium text-white/70">{moment.player}</span>
               <span className="mx-1.5">·</span>
               {moment.match}

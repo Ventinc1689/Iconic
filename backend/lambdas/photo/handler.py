@@ -1,9 +1,18 @@
+from decimal import Decimal
 import json
 import os
 import boto3
 
 dynamodb = boto3.resource('dynamodb')
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
+THUMBNAIL_BUCKET = os.environ['THUMBNAIL_BUCKET']
+
+# Helper class to convert DynamoDB Decimal types to int/float for JSON serialization
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super().default(obj)
 
 def handler(event, context):
     table = dynamodb.Table(PHOTO_TABLE)
@@ -17,6 +26,13 @@ def handler(event, context):
 
     photos = response['Items']
 
+     # Build public image URLs from thumbnail keys stored in DynamoDB
+    for photo in photos:
+        key      = photo.get('key', '')
+        filename = key.split('/')[-1].rsplit('.', 1)[0]  # "headbutt.jpg" → "headbutt"
+        photo['image_url_300'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_300w.jpg"
+        photo['image_url_800'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_800w.jpg"
+
     # Return the list of approved photos as JSON
     return {
         'statusCode': 200,
@@ -24,5 +40,5 @@ def handler(event, context):
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',  # Allow CORS for all origins
         },
-        'body': json.dumps(photos)
+        'body': json.dumps(photos, cls=DecimalEncoder)
     }

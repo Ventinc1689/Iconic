@@ -9,6 +9,8 @@ export interface Moment {
   tags: string[];
   likes: number;
   emoji: string;
-  color: string; // tailwind bg color class for placeholder
-  tagColor: string; // tailwind text/bg for tags
+  color: string; 
+  tagColor: string; 
+  image_url_300?: string;  
+  image_url_800?: string;
 }

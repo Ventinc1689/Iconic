@@ -38,6 +38,8 @@ function App() {
           emoji:       item.emoji        ?? '⚽',
           color:       item.color        ?? 'bg-zinc-900',
           tagColor:    item.tag_color    ?? 'bg-zinc-700 text-zinc-200',
+          image_url_300: item.image_url_300,
+          image_url_800: item.image_url_800,
         }));
         setMoments(mapped);
       })

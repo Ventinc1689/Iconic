@@ -25,9 +25,17 @@ export default function MomentCard({ moment, onClick }: MomentCardProps) {
       onClick={onClick}
       className="group cursor-pointer rounded-xl border border-white/10 bg-white/5 hover:border-green-500/40 hover:bg-white/8 transition-all duration-200 overflow-hidden flex flex-col"
     >
-      {/* Image placeholder */}
-      <div className={`relative h-48 ${moment.color} flex items-center justify-center flex-shrink-0`}>
-        <span className="text-5xl select-none">{moment.emoji}</span>
+      {/* Image container */}
+      <div className={`relative h-64 ${moment.color} flex items-center justify-center flex-shrink-0`}>
+        {moment.image_url_300 ? (
+          <img
+            src={moment.image_url_300}
+            alt={moment.title}
+            className="w-full h-full object-cover object-center"
+          />
+        ) : (
+          <span className="text-5xl select-none">{moment.emoji}</span>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <span className="absolute bottom-3 left-3 text-xs font-mono font-bold text-white/70 bg-black/50 px-2 py-0.5 rounded">
           {moment.year}

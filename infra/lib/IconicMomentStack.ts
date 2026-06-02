@@ -9,6 +9,8 @@ import * as lambda_event_sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Construct } from 'constructs';
 
 export class IconicMomentStack extends cdk.Stack {
@@ -29,6 +31,16 @@ export class IconicMomentStack extends cdk.Stack {
       bucketName: 'iconic-moment-resized-image-bucket',
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
+
+    // CloudFront distribution to serve resized images without making S3 public
+    const imageDistribution = new cloudfront.Distribution(this, 'ImageDistribution', {
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(resizedImageBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
     });
 
 
@@ -272,7 +284,8 @@ export class IconicMomentStack extends cdk.Stack {
       handler: 'handler.handler',
       code: lambda.Code.fromAsset('../backend/lambdas/photo'),
       environment: {
-        PHOTO_TABLE: photoTable.tableName
+        PHOTO_TABLE: photoTable.tableName,
+        THUMBNAIL_BUCKET: `https://${imageDistribution.distributionDomainName}`,
       },
     });
 
@@ -318,6 +331,11 @@ export class IconicMomentStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: api.url + 'photos',
       description: 'URL for the approved photos API endpoint',
+    })
+
+    new cdk.CfnOutput(this, 'ImageCdnUrl', {
+      value: `https://${imageDistribution.distributionDomainName}`,
+      description: 'CloudFront URL for serving resized images',
     })
   }
 }
