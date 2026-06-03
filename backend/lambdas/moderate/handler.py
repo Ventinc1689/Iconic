@@ -8,7 +8,12 @@ dynamodb = boto3.resource('dynamodb')
 RAW_BUCKET = os.environ['RAW_BUCKET']
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
 
-CONFIDENCE_THRESHOLD = 85.0 # Minimum confidence level for detecting inappropriate content
+CONFIDENCE_THRESHOLD = 90.0
+
+# Rekognition labels that are acceptable in sports/celebration contexts.
+ALLOWED_LABELS = {
+    'Barechested Male',
+}
 
 def handler(event, context):
     table = dynamodb.Table(PHOTO_TABLE)
@@ -18,7 +23,7 @@ def handler(event, context):
         # Unwrap SQS → SNS → payload
         sns_envelope = json.loads(record['body'])
         payload      = json.loads(sns_envelope['Message'])
- 
+
         photo_id = payload['photo_id']
         bucket   = payload['bucket']
         key      = payload['key']
@@ -34,12 +39,16 @@ def handler(event, context):
              MinConfidence = CONFIDENCE_THRESHOLD
         )
 
-        moderation_labels = response['ModerationLabels']
+        # Filter out labels that are acceptable in sports/celebration contexts
+        blocking_labels = [
+            label for label in response['ModerationLabels']
+            if label['Name'] not in ALLOWED_LABELS
+        ]
 
         # unsafe content detected, reject photo
-        if moderation_labels:
+        if blocking_labels:
             status = 'rejected'
-            reason = moderation_labels[0]['Name'] # Get the most likely reason for rejection
+            reason = blocking_labels[0]['Name']
             print(f"Photo {photo_id} rejected due to {reason}")
 
         # no unsafe content detected, approve photo

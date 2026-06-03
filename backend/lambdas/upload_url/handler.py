@@ -8,6 +8,8 @@ RAW_BUCKET = os.environ['RAW_BUCKET']
 
 
 def handler(event, context):
+
+    # Parse the incoming request body as JSON and extract the filename
     body = json.loads(event.get('body') or '{}')
     filename = body.get('filename', 'upload.jpg')
 

@@ -20,34 +20,58 @@ function App() {
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
+  function mapMoments(data: any[]): Moment[] {
+    return data.map((item: any) => ({
+      id:          item.photo_id,
+      title:       item.title        ?? 'Untitled Moment',
+      player:      item.player       ?? 'Unknown',
+      match:       item.match        ?? '',
+      competition: item.competition  ?? '',
+      year:        Number(item.year) || new Date(item.uploaded_at).getFullYear(),
+      caption:     item.caption      ?? 'Caption pending...',
+      tags:        item.tags         ?? [],
+      likes:       Number(item.likes) || 0,
+      emoji:       item.emoji        ?? '⚽',
+      color:       item.color        ?? 'bg-zinc-900',
+      tagColor:    item.tag_color    ?? 'bg-zinc-700 text-zinc-200',
+      image_url_300: item.image_url_300,
+    }));
+  }
+
+  async function fetchMoments() {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return mapMoments(data);
+  }
+
   useEffect(() => {
-    fetch(API_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error(`API error ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const mapped: Moment[] = data.map((item: any) => ({
-          id:          item.photo_id,
-          title:       item.title        ?? 'Untitled Moment',
-          player:      item.player       ?? 'Unknown',
-          match:       item.match        ?? '',
-          competition: item.competition  ?? '',
-          year:        Number(item.year) || new Date(item.uploaded_at).getFullYear(),
-          caption:     item.caption      ?? 'Caption pending...',
-          tags:        item.tags         ?? [],
-          likes:       Number(item.likes) || 0,
-          emoji:       item.emoji        ?? '⚽',
-          color:       item.color        ?? 'bg-zinc-900',
-          tagColor:    item.tag_color    ?? 'bg-zinc-700 text-zinc-200',
-          image_url_300: item.image_url_300,
-          image_url_800: item.image_url_800,
-        }));
-        setMoments(mapped);
-      })
+    fetchMoments()
+      .then(setMoments)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  function handleUploadSuccess() {
+    const knownCount = moments.length;
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const updated = await fetchMoments();
+        setMoments(updated);
+        const newPhoto = updated.find((m) => !moments.some((old) => old.id === m.id));
+        const isProcessed = newPhoto
+          ? newPhoto.caption !== 'Caption pending...' && newPhoto.title !== 'Untitled Moment'
+          : false;
+        if ((updated.length > knownCount && isProcessed) || attempts >= 20) {
+          clearInterval(poll);
+        }
+      } catch {
+        clearInterval(poll);
+      }
+    }, 3000);
+  }
 
   function scrollToGallery() {
     document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' });
@@ -111,7 +135,7 @@ function App() {
       )}
 
       {showUpload && (
-        <UploadModal onClose={() => setShowUpload(false)} />
+        <UploadModal onClose={() => setShowUpload(false)} onUploadSuccess={handleUploadSuccess} />
       )}
     </div>
   );

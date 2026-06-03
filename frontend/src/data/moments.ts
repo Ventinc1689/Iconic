@@ -12,5 +12,4 @@ export interface Moment {
   color: string; 
   tagColor: string; 
   image_url_300?: string;  
-  image_url_800?: string;
 }

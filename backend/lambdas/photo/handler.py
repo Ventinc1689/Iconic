@@ -28,17 +28,16 @@ def handler(event, context):
 
      # Build public image URLs from thumbnail keys stored in DynamoDB
     for photo in photos:
-        key      = photo.get('key', '')
-        filename = key.split('/')[-1].rsplit('.', 1)[0]  # "headbutt.jpg" → "headbutt"
+        key = photo.get('key', '')
+        filename = key.split('/')[-1].rsplit('.', 1)[0]  # Strip directory and extension to get base filename
         photo['image_url_300'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_300w.jpg"
-        photo['image_url_800'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_800w.jpg"
 
     # Return the list of approved photos as JSON
     return {
         'statusCode': 200,
         'headers': {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',  # Allow CORS for all origins
+            'Access-Control-Allow-Origin': '*',  
         },
         'body': json.dumps(photos, cls=DecimalEncoder)
     }

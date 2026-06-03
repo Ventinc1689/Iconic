@@ -359,10 +359,5 @@ export class IconicMomentStack extends cdk.Stack {
       value: api.url + 'photos',
       description: 'URL for the approved photos API endpoint',
     })
-
-    new cdk.CfnOutput(this, 'ImageCdnUrl', {
-      value: `https://${imageDistribution.distributionDomainName}`,
-      description: 'CloudFront URL for serving resized images',
-    })
   }
 }

@@ -6,9 +6,10 @@ type UploadState = 'idle' | 'uploading' | 'done' | 'error';
 
 interface UploadModalProps {
   onClose: () => void;
+  onUploadSuccess?: () => void;
 }
 
-export default function UploadModal({ onClose }: UploadModalProps) {
+export default function UploadModal({ onClose, onUploadSuccess }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [state, setState] = useState<UploadState>('idle');
@@ -53,6 +54,7 @@ export default function UploadModal({ onClose }: UploadModalProps) {
       });
 
       setState('done');
+      onUploadSuccess?.();
     } catch (err: any) {
       setState('error');
       setErrorMsg(err.message ?? 'Upload failed');
@@ -100,7 +102,7 @@ export default function UploadModal({ onClose }: UploadModalProps) {
                       </svg>
                     </div>
                     <p className="text-sm text-white/50">Click to <span className="text-green-400">browse</span> an image</p>
-                    <p className="text-xs text-white/25">JPG, PNG, GIF, WebP · max 10 MB</p>
+                    <p className="text-xs text-white/25">JPG, JPEG, PNG · max 10 MB</p>
                   </div>
                 )}
               </label>

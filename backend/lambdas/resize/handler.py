@@ -10,7 +10,7 @@ RAW_BUCKET = os.environ['RAW_BUCKET']
 RESIZED_BUCKET = os.environ['RESIZED_BUCKET']
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
 
-SIZES = [300, 800]
+SIZE = 300 # Thumbnail width in pixels
 
 # Lambda function to handle SQS events triggered by messages from the SNS topic
 def handler(event, context):
@@ -32,37 +32,36 @@ def handler(event, context):
         image_data = response['Body'].read() # Read the image data from the S3
         original_image = Image.open(io.BytesIO(image_data)) # Open the image using PIL
 
-        thumbnails = {}
+        # Convert to RGB so JPEG encoding works for any input format (AVIF, WebP, PNG with alpha, etc.)
+        if original_image.mode != 'RGB':
+            original_image = original_image.convert('RGB')
 
-        # Generate the thumbnail for each size
-        for width in SIZES:
-            ratio = width / original_image.width # Calculate the aspect ratio
-            height = int(original_image.height * ratio) # Calculate the new height to maintain aspect ratio
-            resized = original_image.resize((width, height), Image.LANCZOS) # Resize the image
+        # Strip extension cleanly regardless of format
+        basename = os.path.splitext(key.split('/')[-1])[0]
 
-            # save the resized image to a buffer
-            buffer = io.BytesIO()
-            resized.save(buffer, format='JPEG', quality=85) # Save the resized image to the buffer in JPEG
-            buffer.seek(0) # Reset the buffer position to the beginning
+        ratio = SIZE / original_image.width
+        height = int(original_image.height * ratio)
+        resized = original_image.resize((SIZE, height), Image.LANCZOS)
 
-            # Upload the resized image back to the S3 bucket 
-            filename = key.split('/')[-1].replace('.jpg', '').replace('.jpeg', '').replace('.png', '').replace('.avif', '') 
-            thumbnail_key = f"thumbnails/{filename}_{width}w.jpg" # Create a new key for the thumbnail
+        buffer = io.BytesIO()
+        resized.save(buffer, format='JPEG', quality=85)
+        buffer.seek(0)
 
-            s3.put_object(
-                Bucket = RESIZED_BUCKET,
-                Key = thumbnail_key,
-                Body = buffer,
-                ContentType = 'image/jpeg'
-            )
-            thumbnails[f'{width}w'] = thumbnail_key
-            print(f"Saved thumbnail - {thumbnail_key}")
+        thumbnail_key = f"thumbnails/{basename}_{SIZE}w.jpg"
+
+        s3.put_object(
+            Bucket = RESIZED_BUCKET,
+            Key = thumbnail_key,
+            Body = buffer,
+            ContentType = 'image/jpeg'
+        )
+        print(f"Saved thumbnail - {thumbnail_key}")
 
         photo_table.update_item(
             Key = { 'photo_id': photo_id },
-            UpdateExpression = "SET thumbnails = :thumbnails, resize_status = :status", 
+            UpdateExpression = "SET thumbnail_key = :thumbnail_key, resize_status = :status",
             ExpressionAttributeValues = {
-                ':thumbnails': thumbnails,
+                ':thumbnail_key': thumbnail_key,
                 ':status': 'done'
             },
         )
