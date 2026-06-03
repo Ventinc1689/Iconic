@@ -28,7 +28,7 @@ function App() {
       player:      item.player       ?? 'Unknown',
       match:       item.game        ?? '',
       competition: item.competition  ?? '',
-      year:        Number(item.year) || new Date(item.uploaded_at).getFullYear(),
+      year:        Number(item.match_year) || new Date(item.uploaded_at).getFullYear(),
       caption:     item.caption      ?? 'Caption pending...',
       tags:        item.tags         ?? [],
       likes:       Number(item.likes) || 0,
