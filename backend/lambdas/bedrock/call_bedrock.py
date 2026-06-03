@@ -62,7 +62,7 @@ def call_bedrock(event, context):
                                             "is_appropriate": true,
                                             "title": "short memorable name for this moment",
                                             "player": "main player(s) involved",
-                                            "match": "The two teams involved",
+                                            "game": "The two teams involved",
                                             "competition": "competition name",
                                             "year": "year this moment happened",
                                             "caption": "2-3 sentence caption describing what happened and why it matters historically"
@@ -86,7 +86,7 @@ def call_bedrock(event, context):
 
         # Strip markdown code fences if the model wrapped its output
         if raw_text.startswith('```'):
-            raw_text = raw_text.split('\n', 1)[-1]  # drop the opening ```json line
+            raw_text = raw_text.split('\n', 1)[-1] 
             raw_text = raw_text.rsplit('```', 1)[0].strip()
 
         try:
@@ -107,12 +107,15 @@ def call_bedrock(event, context):
             print(f"Rejected photo_id={photo_id} — {rejection_reason}")
             table.update_item(
                 Key={'photo_id': photo_id},
-                UpdateExpression='SET #s = :status, caption_status = :cs, rejection_reason = :r',
-                ExpressionAttributeNames={'#s': 'status'},
+                UpdateExpression='''SET 
+                    photo_status = :photo_status, 
+                    caption_status = :caption_status, 
+                    rejection_reason = :rejection_status
+                ''',
                 ExpressionAttributeValues={
-                    ':status': 'rejected',
-                    ':cs': 'done',
-                    ':r': rejection_reason,
+                    ':photo_status': 'rejected',
+                    ':caption_status': 'done',
+                    ':rejection_status': rejection_reason,
                 },
             )
             return
@@ -124,25 +127,20 @@ def call_bedrock(event, context):
                 caption = :caption,
                 title = :title,
                 player = :player,
-                #m = :match,
+                game = :game,
                 competition = :competition,
-                #y = :year,
-                caption_status = :cs,
-                #s = :status
+                match_year = :match_year,
+                caption_status = :caption_status,
+                photo_status = :photo_status
             ''',
-            ExpressionAttributeNames={
-                '#m': 'match',  
-                '#y': 'year',  
-                '#s': 'status'
-            },
             ExpressionAttributeValues={
                 ':caption': data.get('caption', ''),
                 ':title': data.get('title', 'Untitled Moment'),
                 ':player': data.get('player', 'Unknown'),
-                ':match': data.get('match', ''),
+                ':game': data.get('game', ''),
                 ':competition': data.get('competition', ''),
-                ':year': data.get('year', 0),
-                ':cs': 'done',
-                ':status': 'approved'
+                ':match_year': data.get('year', 0),
+                ':caption_status': 'done',
+                ':photo_status': 'approved'
             },
         )

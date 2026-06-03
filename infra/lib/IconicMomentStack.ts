@@ -235,7 +235,7 @@ export class IconicMomentStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/lambdas/photo'),
       environment: {
         PHOTO_TABLE: photoTable.tableName,
-        THUMBNAIL_BUCKET: `https://${imageDistribution.distributionDomainName}`,
+        CLOUDFRONT_URL: `https://${imageDistribution.distributionDomainName}`,
       },
     });
 

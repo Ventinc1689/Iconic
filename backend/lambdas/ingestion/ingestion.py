@@ -24,7 +24,7 @@ def ingestion(event, context):
             'photo_id': photo_id,
             'bucket': bucket,
             'key': key,
-            'status': 'pending',
+            'photo_status': 'pending',
             'uploaded_at': datetime.now(timezone.utc).isoformat()
         })
 
@@ -41,4 +41,4 @@ def ingestion(event, context):
             Message = json.dumps(payload)
         )
 
-        print(f"Published to SNS — bucket: {bucket}, status=pending")
+        print(f"Published to SNS — bucket: {bucket}, photo_status=pending")

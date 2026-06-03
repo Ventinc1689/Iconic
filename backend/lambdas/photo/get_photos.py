@@ -5,7 +5,7 @@ import boto3
 
 dynamodb = boto3.resource('dynamodb')
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
-THUMBNAIL_BUCKET = os.environ['THUMBNAIL_BUCKET']
+CLOUDFRONT_URL = os.environ['CLOUDFRONT_URL']
 
 # Helper class to convert DynamoDB Decimal types to int/float for JSON serialization
 class DecimalEncoder(json.JSONEncoder):
@@ -19,9 +19,8 @@ def get_photos(event, context):
 
     # Scan the DynamoDB table for items with status "approved"
     response = table.scan(
-        FilterExpression = '#s = :approved',
-        ExpressionAttributeNames={'#s': 'status'},
-        ExpressionAttributeValues={':approved': 'approved'},
+        FilterExpression = 'photo_status = :photo_status',
+        ExpressionAttributeValues={':photo_status': 'approved'},
     )
 
     photos = response['Items']
@@ -30,7 +29,7 @@ def get_photos(event, context):
     for photo in photos:
         key = photo.get('key', '')
         filename = key.split('/')[-1].rsplit('.', 1)[0]  # Strip directory and extension to get base filename
-        photo['image_url_800'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_800w.jpg"
+        photo['image_url_800'] = f"{CLOUDFRONT_URL}/thumbnails/{filename}_800w.jpg"
 
     # Return the list of approved photos as JSON
     return {

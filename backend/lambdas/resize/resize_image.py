@@ -59,11 +59,14 @@ def resize_image(event, context):
 
         photo_table.update_item(
             Key = { 'photo_id': photo_id },
-            UpdateExpression = "SET thumbnail_key = :thumbnail_key, resize_status = :status",
+            UpdateExpression = '''SET 
+                thumbnail_key = :thumbnail_key, 
+                resize_status = :resize_status
+            ''',
             ExpressionAttributeValues = {
                 ':thumbnail_key': thumbnail_key,
-                ':status': 'done'
+                ':resize_status': 'done'
             },
         )
         
-        print(f"Updated DynamoDB photo_id={photo_id} resize_status=done")
+        print(f"Updated DynamoDB photo_id={photo_id}")

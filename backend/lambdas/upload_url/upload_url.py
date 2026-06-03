@@ -6,7 +6,6 @@ import boto3
 s3 = boto3.client('s3')
 RAW_BUCKET = os.environ['RAW_BUCKET']
 
-
 def upload_url(event, context):
 
     # Parse the incoming request body as JSON and extract the filename
