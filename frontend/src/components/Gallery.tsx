@@ -5,9 +5,10 @@ import MomentCard from './MomentCard';
 interface GalleryProps {
   moments: Moment[];
   onCardClick: (moment: Moment) => void;
+  onUploadClick: () => void;
 }
 
-export default function Gallery({ moments, onCardClick }: GalleryProps) {
+export default function Gallery({ moments, onCardClick, onUploadClick }: GalleryProps) {
   const ref = useRef<HTMLElement>(null);
 
   return (
@@ -23,7 +24,7 @@ export default function Gallery({ moments, onCardClick }: GalleryProps) {
               <span className="w-2 h-2 rounded-full bg-green-500"></span>
               AI-captioned
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-500 text-black text-sm font-semibold hover:bg-green-400 transition-colors duration-150">
+            <button onClick={onUploadClick} className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-500 text-black text-sm font-semibold hover:bg-green-400 transition-colors duration-150">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
               </svg>

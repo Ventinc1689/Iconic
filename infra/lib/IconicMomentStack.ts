@@ -25,6 +25,12 @@ export class IconicMomentStack extends cdk.Stack {
       bucketName: 'iconic-moment-image-bucket',
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      cors: [{
+        allowedMethods: [s3.HttpMethods.PUT],
+        allowedOrigins: ['*'],
+        allowedHeaders: ['*'],
+        maxAge: 3000,
+      }],
     });
 
     const resizedImageBucket = new s3.Bucket(this, 'ResizedImageBucket', {
@@ -294,6 +300,23 @@ export class IconicMomentStack extends cdk.Stack {
 
 
     // ============================================
+    // Lambda — presigned upload URL
+    // ============================================
+    const uploadUrlLambda = new lambda.Function(this, 'UploadUrlLambda', {
+      functionName: 'get-upload-url',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('../backend/lambdas/upload_url'),
+      environment: {
+        RAW_BUCKET: imageBucket.bucketName,
+      },
+    });
+
+    imageBucket.grantPut(uploadUrlLambda);
+
+
+
+    // ============================================
     // API Gateway
     // ============================================
     const api = new apigateway.RestApi(this, 'IconicAPI', {
@@ -309,6 +332,10 @@ export class IconicMomentStack extends cdk.Stack {
     // GET /photos
     const photos = api.root.addResource('photos');
     photos.addMethod('GET', new apigateway.LambdaIntegration(getPhotosLambda));
+
+    // POST /upload-url  — returns a presigned S3 PUT URL
+    const uploadUrl = api.root.addResource('upload-url');
+    uploadUrl.addMethod('POST', new apigateway.LambdaIntegration(uploadUrlLambda));
 
 
 

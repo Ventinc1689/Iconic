@@ -6,6 +6,7 @@ import Gallery from './components/Gallery';
 import LoginModal from './components/LoginModal';
 import SignUpModal from './components/SignUpModal';
 import MomentModal from './components/MomentModal';
+import UploadModal from './components/UploadModal';
 
 const API_URL = 'https://l4fznwuful.execute-api.us-east-1.amazonaws.com/prod/photos';
 
@@ -17,6 +18,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<Modal>(null);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     fetch(API_URL)
@@ -82,6 +84,7 @@ function App() {
           <Gallery
             moments={moments}
             onCardClick={setSelectedMoment}
+            onUploadClick={() => setShowUpload(true)}
           />
         )}
       </main>
@@ -105,6 +108,10 @@ function App() {
           moment={selectedMoment}
           onClose={() => setSelectedMoment(null)}
         />
+      )}
+
+      {showUpload && (
+        <UploadModal onClose={() => setShowUpload(false)} />
       )}
     </div>
   );
