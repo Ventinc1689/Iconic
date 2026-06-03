@@ -57,16 +57,22 @@ function App() {
     const knownIds = new Set(moments.map((m) => m.id));
     setPendingCount((n) => n + 1);
     let attempts = 0;
+    let photoSeen = false;
     const poll = setInterval(async () => {
       attempts++;
       try {
         const updated = await fetchMoments();
         const newPhoto = updated.find((m) => !knownIds.has(m.id));
+        if (newPhoto) photoSeen = true;
         const isProcessed = newPhoto
           ? newPhoto.caption !== 'Caption pending...' && newPhoto.title !== 'Untitled Moment'
           : false;
         if (newPhoto && isProcessed) {
           setMoments(updated);
+          setPendingCount((n) => Math.max(0, n - 1));
+          clearInterval(poll);
+        } else if (!photoSeen && attempts >= 8) {
+          // Photo never appeared after 24s — rejected by moderation
           setPendingCount((n) => Math.max(0, n - 1));
           clearInterval(poll);
         } else if (attempts >= 20) {
