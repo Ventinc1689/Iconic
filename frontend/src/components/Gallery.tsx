@@ -4,11 +4,12 @@ import MomentCard from './MomentCard';
 
 interface GalleryProps {
   moments: Moment[];
+  pendingCount?: number;
   onCardClick: (moment: Moment) => void;
   onUploadClick: () => void;
 }
 
-export default function Gallery({ moments, onCardClick, onUploadClick }: GalleryProps) {
+export default function Gallery({ moments, pendingCount = 0, onCardClick, onUploadClick }: GalleryProps) {
   const ref = useRef<HTMLElement>(null);
 
   return (
@@ -34,6 +35,14 @@ export default function Gallery({ moments, onCardClick, onUploadClick }: Gallery
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: pendingCount }).map((_, i) => (
+            <MomentCard
+              key={`pending-${i}`}
+              moment={{ id: '', title: '', player: '', match: '', competition: '', year: 0, caption: '', tags: [], likes: 0, emoji: '', color: '', tagColor: '' }}
+              onClick={() => {}}
+              loading
+            />
+          ))}
           {moments.map((moment) => (
             <MomentCard
               key={moment.id}

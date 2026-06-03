@@ -10,7 +10,7 @@ RAW_BUCKET = os.environ['RAW_BUCKET']
 RESIZED_BUCKET = os.environ['RESIZED_BUCKET']
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
 
-SIZE = 300 # Thumbnail width in pixels
+SIZE = 800 # Thumbnail width in pixels
 
 # Lambda function to handle SQS events triggered by messages from the SNS topic
 def resize_image(event, context):
@@ -44,7 +44,7 @@ def resize_image(event, context):
         resized = original_image.resize((SIZE, height), Image.LANCZOS)
 
         buffer = io.BytesIO()
-        resized.save(buffer, format='JPEG', quality=85)
+        resized.save(buffer, format='JPEG', quality=95)
         buffer.seek(0)
 
         thumbnail_key = f"thumbnails/{basename}_{SIZE}w.jpg"

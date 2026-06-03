@@ -19,6 +19,7 @@ function App() {
   const [activeModal, setActiveModal] = useState<Modal>(null);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   function mapMoments(data: any[]): Moment[] {
     return data.map((item: any) => ({
@@ -34,7 +35,7 @@ function App() {
       emoji:       item.emoji        ?? '⚽',
       color:       item.color        ?? 'bg-zinc-900',
       tagColor:    item.tag_color    ?? 'bg-zinc-700 text-zinc-200',
-      image_url_300: item.image_url_300,
+      image_url_800: item.image_url_800,
     }));
   }
 
@@ -53,21 +54,28 @@ function App() {
   }, []);
 
   function handleUploadSuccess() {
-    const knownCount = moments.length;
+    const knownIds = new Set(moments.map((m) => m.id));
+    setPendingCount((n) => n + 1);
     let attempts = 0;
     const poll = setInterval(async () => {
       attempts++;
       try {
         const updated = await fetchMoments();
-        setMoments(updated);
-        const newPhoto = updated.find((m) => !moments.some((old) => old.id === m.id));
+        const newPhoto = updated.find((m) => !knownIds.has(m.id));
         const isProcessed = newPhoto
           ? newPhoto.caption !== 'Caption pending...' && newPhoto.title !== 'Untitled Moment'
           : false;
-        if ((updated.length > knownCount && isProcessed) || attempts >= 20) {
+        if (newPhoto && isProcessed) {
+          setMoments(updated);
+          setPendingCount((n) => Math.max(0, n - 1));
+          clearInterval(poll);
+        } else if (attempts >= 20) {
+          setMoments(updated);
+          setPendingCount((n) => Math.max(0, n - 1));
           clearInterval(poll);
         }
       } catch {
+        setPendingCount((n) => Math.max(0, n - 1));
         clearInterval(poll);
       }
     }, 3000);
@@ -107,6 +115,7 @@ function App() {
         {!loading && !error && (
           <Gallery
             moments={moments}
+            pendingCount={pendingCount}
             onCardClick={setSelectedMoment}
             onUploadClick={() => setShowUpload(true)}
           />

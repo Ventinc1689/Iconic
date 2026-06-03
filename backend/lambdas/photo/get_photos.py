@@ -30,7 +30,7 @@ def get_photos(event, context):
     for photo in photos:
         key = photo.get('key', '')
         filename = key.split('/')[-1].rsplit('.', 1)[0]  # Strip directory and extension to get base filename
-        photo['image_url_300'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_300w.jpg"
+        photo['image_url_800'] = f"{THUMBNAIL_BUCKET}/thumbnails/{filename}_800w.jpg"
 
     # Return the list of approved photos as JSON
     return {
