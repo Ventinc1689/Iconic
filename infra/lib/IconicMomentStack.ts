@@ -197,7 +197,15 @@ export class IconicMomentStack extends cdk.Stack {
       functionName: 'caption-photo',
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'call_bedrock.call_bedrock',
-      code: lambda.Code.fromAsset('../backend/lambdas/bedrock'),
+      code: lambda.Code.fromAsset('../backend/lambdas/bedrock', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output --platform manylinux2014_x86_64 --only-binary=:all: && cp -r . /asset-output',
+          ],
+        },
+      }), 
       timeout: cdk.Duration.seconds(120),
       environment: {
         RAW_BUCKET: imageBucket.bucketName,

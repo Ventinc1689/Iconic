@@ -26,7 +26,7 @@ function App() {
       id:          item.photo_id,
       title:       item.title        ?? 'Untitled Moment',
       player:      item.player       ?? 'Unknown',
-      match:       item.match        ?? '',
+      match:       item.game        ?? '',
       competition: item.competition  ?? '',
       year:        Number(item.year) || new Date(item.uploaded_at).getFullYear(),
       caption:     item.caption      ?? 'Caption pending...',

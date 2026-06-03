@@ -1,16 +1,42 @@
 import json
 import os
 import boto3
-import base64
+from pydantic import BaseModel
+from pydantic_ai import Agent, BinaryContent
+from pydantic_ai.models.bedrock import BedrockConverseModel
 
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
-bedrock = boto3.client('bedrock-runtime')
-
 RAW_BUCKET = os.environ['RAW_BUCKET']
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
-
 MODEL_ID = 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+
+class MomentAnalysis(BaseModel):
+    is_soccer_moment: bool
+    is_appropriate: bool
+    title: str
+    player: list[str]
+    game: str
+    competition: str
+    year: int
+    caption: str
+
+bedrock = BedrockConverseModel(MODEL_ID)
+
+agent = Agent(
+    model = bedrock,
+    output_type = MomentAnalysis,
+    system_prompt = (
+        '''
+            You are a football expert analyzing an iconic soccer moment. Look at this image and identify the moment.
+            Rules: 
+                - Set 'is_soccer_moment' to false if the image is not related to soccer/football.
+                - Set 'is_appropriate' to false if the image contains nudity, sexual content, or other material not suitable for a general audience. Shirtless celebrations, slide tackles, physical contact are normal for soccer and should be appropriate.
+                - Title should be 1-3 words. Caption should be 2-3 sentences, describing what happened and why it matters historically.
+                - If you cannot identity specific details but it is a soccer moment, make your best guess.
+        '''
+    )
+)
 
 def call_bedrock(event, context):
     table = dynamodb.Table(PHOTO_TABLE)
@@ -27,77 +53,24 @@ def call_bedrock(event, context):
 
         # Download the image for S3
         response = s3.get_object(Bucket=bucket, Key=key)
-        image_data = response['Body'].read() # Read the image data from the S3
-        image_base64 = base64.standard_b64encode(image_data).decode('utf-8') # Encode the image data in base64 for Bedrock input
+        image_data = response['Body'].read()
 
         # Detect the image format from the file extension
         ext = key.lower().split('.')[-1]
         media_type = 'image/jpeg' if ext in ['jpg', 'jpeg'] else f'image/{ext}'
-
-        # Build the Bedrock request
-        bedrock_response = bedrock.invoke_model(
-            modelId=MODEL_ID,
-            body=json.dumps({
-                'anthropic_version': 'bedrock-2023-05-31',
-                'max_tokens': 500,
-                'messages': [
-                    {
-                        'role': 'user',
-                        'content': [
-                            {
-                                'type': 'image',
-                                'source': {
-                                    'type':       'base64',
-                                    'media_type': media_type,
-                                    'data':       image_base64,
-                                },
-                            },
-                            {
-                                'type': 'text',
-                                'text': 
-                                '''
-                                    You are a football expert analyzing an iconic soccer moment. Look at this image and respond with only a JSON object. Do not wrap the JSON in markdown code blocks. Return only the raw JSON object.:
-                                        {
-                                            "is_soccer_moment": true,
-                                            "is_appropriate": true,
-                                            "title": "short memorable name for this moment",
-                                            "player": "main player(s) involved",
-                                            "game": "The two teams involved",
-                                            "competition": "competition name",
-                                            "year": "year this moment happened",
-                                            "caption": "2-3 sentence caption describing what happened and why it matters historically"
-                                        }
-                                    Rules:
-                                        - Set 'is_soccer_moment' to false if the image is not related to soccer/football.
-                                        - Set 'is_appropriate' to false if the image contains nudity, sexual content, or other material not suitable for a general audience. Shirtless celebrations, slide tackles, physical contact are normal for soccer and should be appropriate.
-                                        - If you cannot identity specific details but it is a soccer moment, make your best guess.
-                                    Return only the raw JSON object.
-                                '''
-                            },
-                        ],
-                    }
-                ],
-            }),
-        )
         
-        # Parse the response from Bedrock
-        result = json.loads(bedrock_response['body'].read())
-        raw_text = result['content'][0]['text'].strip()
+        # Run the agent
+        result = agent.run_sync([
+            BinaryContent(data=image_data, media_type=media_type),
+            'Analyze this soccer image and return the structured data.',
+        ])
 
-        # Strip markdown code fences if the model wrapped its output
-        if raw_text.startswith('```'):
-            raw_text = raw_text.split('\n', 1)[-1] 
-            raw_text = raw_text.rsplit('```', 1)[0].strip()
-
-        try:
-            data = json.loads(raw_text)
-        except json.JSONDecodeError:
-            data = {'caption': raw_text}
+        data = result.output
 
         # Determine if the photo should be rejected based on the model's analysis
-        if not data.get('is_soccer_moment', True):
+        if not data.is_soccer_moment:
             rejection_reason = 'Not a soccer moment'
-        elif not data.get('is_appropriate', True):
+        elif not data.is_appropriate:
             rejection_reason = 'Inappropriate content'
         else:
             rejection_reason = None
@@ -134,12 +107,12 @@ def call_bedrock(event, context):
                 photo_status = :photo_status
             ''',
             ExpressionAttributeValues={
-                ':caption': data.get('caption', ''),
-                ':title': data.get('title', 'Untitled Moment'),
-                ':player': data.get('player', 'Unknown'),
-                ':game': data.get('game', ''),
-                ':competition': data.get('competition', ''),
-                ':match_year': data.get('year', 0),
+                ':caption': data.caption,
+                ':title': data.title,
+                ':player': ', '.join(data.player) if data.player else 'Unknown',
+                ':game': data.game,
+                ':competition': data.competition,
+                ':match_year': data.year,
                 ':caption_status': 'done',
                 ':photo_status': 'approved'
             },
