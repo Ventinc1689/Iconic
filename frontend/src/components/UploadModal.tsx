@@ -102,7 +102,7 @@ export default function UploadModal({ onClose, onUploadSuccess }: UploadModalPro
                       </svg>
                     </div>
                     <p className="text-sm text-white/50">Click to <span className="text-green-400">browse</span> an image</p>
-                    <p className="text-xs text-white/25">JPG, JPEG, PNG · max 10 MB</p>
+                    <p className="text-xs text-white/25">JPG, JPEG, PNG, WEBG · max 10 MB</p>
                   </div>
                 )}
               </label>

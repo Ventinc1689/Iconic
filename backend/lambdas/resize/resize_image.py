@@ -13,7 +13,7 @@ PHOTO_TABLE = os.environ['PHOTO_TABLE']
 SIZE = 300 # Thumbnail width in pixels
 
 # Lambda function to handle SQS events triggered by messages from the SNS topic
-def handler(event, context):
+def resize_image(event, context):
     photo_table = dynamodb.Table(PHOTO_TABLE) # Get a reference to the DynamoDB table
 
     for record in event['Records']: # Loop through each record in the SQS event

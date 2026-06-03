@@ -7,7 +7,7 @@ s3 = boto3.client('s3')
 RAW_BUCKET = os.environ['RAW_BUCKET']
 
 
-def handler(event, context):
+def upload_url(event, context):
 
     # Parse the incoming request body as JSON and extract the filename
     body = json.loads(event.get('body') or '{}')
@@ -15,7 +15,7 @@ def handler(event, context):
 
     # Sanitise the filename — keep only the last extension
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'jpg'
-    allowed = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+    allowed = {'jpg', 'jpeg', 'png', 'avif', 'webp'}
     if ext not in allowed:
         return {
             'statusCode': 400,
@@ -23,10 +23,12 @@ def handler(event, context):
             'body': json.dumps({'error': 'Unsupported file type'}),
         }
 
+    # Generate a unique S3 key for the upload using a UUID and the original file extension
     key = f"uploads/{uuid.uuid4()}.{ext}"
 
     content_type = 'image/jpeg' if ext in ('jpg', 'jpeg') else f'image/{ext}'
 
+    # Generate a presigned URL for the client to upload the image directly to S3 with the specified content type
     presigned_url = s3.generate_presigned_url(
         'put_object',
         Params={

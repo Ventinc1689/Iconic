@@ -12,7 +12,7 @@ PHOTO_TABLE = os.environ['PHOTO_TABLE']
 
 MODEL_ID = 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
 
-def handler(event, context):
+def call_bedrock(event, context):
     table = dynamodb.Table(PHOTO_TABLE)
 
     for record in event['Records']:
@@ -54,16 +54,25 @@ def handler(event, context):
                             },
                             {
                                 'type': 'text',
-                                'text': '''You are a football expert analyzing an iconic soccer moment. Look at this image and respond with only a JSON object. Do not wrap the JSON in markdown code blocks. Return only the raw JSON object.:
-                                    {
-                                        "title": "short memorable name for this moment",
-                                        "player": "main player(s) involved",
-                                        "match": "The two teams involved",
-                                        "competition": "competition name",
-                                        "year": "year this moment happened",
-                                        "caption": "2-3 sentence caption describing what happened and why it matters historically"
-                                    }
-                                If you cannot identify specific details, make your best guess from visual cues. Return only the JSON, no markdown, no explanation. '''
+                                'text': 
+                                '''
+                                    You are a football expert analyzing an iconic soccer moment. Look at this image and respond with only a JSON object. Do not wrap the JSON in markdown code blocks. Return only the raw JSON object.:
+                                        {
+                                            "is_soccer_moment": true,
+                                            "is_appropriate": true,
+                                            "title": "short memorable name for this moment",
+                                            "player": "main player(s) involved",
+                                            "match": "The two teams involved",
+                                            "competition": "competition name",
+                                            "year": "year this moment happened",
+                                            "caption": "2-3 sentence caption describing what happened and why it matters historically"
+                                        }
+                                    Rules:
+                                        - Set 'is_soccer_moment' to false if the image is not related to soccer/football.
+                                        - Set 'is_appropriate' to false if the image contains nudity, sexual content, or other material not suitable for a general audience. Shirtless celebrations, slide tackles, physical contact are normal for soccer and should be appropriate.
+                                        - If you cannot identity specific details but it is a soccer moment, make your best guess.
+                                    Return only the raw JSON object.
+                                '''
                             },
                         ],
                     }
@@ -85,6 +94,29 @@ def handler(event, context):
         except json.JSONDecodeError:
             data = {'caption': raw_text}
 
+        # Determine if the photo should be rejected based on the model's analysis
+        if not data.get('is_soccer_moment', True):
+            rejection_reason = 'Not a soccer moment'
+        elif not data.get('is_appropriate', True):
+            rejection_reason = 'Inappropriate content'
+        else:
+            rejection_reason = None
+
+        # If there's a reason to reject the photo, update DynamoDB and skip saving the caption
+        if rejection_reason:
+            print(f"Rejected photo_id={photo_id} — {rejection_reason}")
+            table.update_item(
+                Key={'photo_id': photo_id},
+                UpdateExpression='SET #s = :status, caption_status = :cs, rejection_reason = :r',
+                ExpressionAttributeNames={'#s': 'status'},
+                ExpressionAttributeValues={
+                    ':status': 'rejected',
+                    ':cs': 'done',
+                    ':r': rejection_reason,
+                },
+            )
+            return
+
         # Save the caption to DynamoDB
         table.update_item(
             Key={'photo_id': photo_id},
@@ -95,11 +127,13 @@ def handler(event, context):
                 #m = :match,
                 competition = :competition,
                 #y = :year,
-                caption_status = :cs
+                caption_status = :cs,
+                #s = :status
             ''',
             ExpressionAttributeNames={
                 '#m': 'match',  
                 '#y': 'year',  
+                '#s': 'status'
             },
             ExpressionAttributeValues={
                 ':caption': data.get('caption', ''),
@@ -109,5 +143,6 @@ def handler(event, context):
                 ':competition': data.get('competition', ''),
                 ':year': data.get('year', 0),
                 ':cs': 'done',
+                ':status': 'approved'
             },
         )

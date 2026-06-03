@@ -11,7 +11,7 @@ PHOTO_TABLE = os.environ['PHOTO_TABLE']
 
 
 # Lambda function to handle S3 events when a new image is uploaded to the bucket
-def handler(event, context):
+def ingestion(event, context):
     photo_table = dynamodb.Table(PHOTO_TABLE) # Get a reference to the DynamoDB table
 
     for record in event['Records']:

@@ -99,32 +99,6 @@ export class IconicMomentStack extends cdk.Stack {
 
 
     // ============================================
-    // SQS Moderate Queue
-    // ============================================
-
-    // Create a separate DLQ for the moderation workflow (if needed)
-    const moderateDLQ = new sqs.Queue(this, 'ModerateDLQ', {
-      queueName: 'iconic-moderate-dlq',
-    })
-
-    // Create the SQS queue for moderation tasks, with the DLQ configured
-    const moderateQueue = new sqs.Queue(this, 'ModerateQueue', {
-      queueName: 'iconic-moderate-queue',
-      visibilityTimeout: cdk.Duration.seconds(60),
-      deadLetterQueue: {
-        queue: moderateDLQ,
-        maxReceiveCount: 3,
-      },
-    })
-
-    // Subscribe the moderation SQS queue to the SNS topic
-    photoUploadedTopic.addSubscription(
-      new sns_subs.SqsSubscription(moderateQueue)
-    );
-
-
-
-    // ============================================
     // SQS Caption Queue
     // ============================================
 
@@ -156,7 +130,7 @@ export class IconicMomentStack extends cdk.Stack {
     const ingestionLambda = new lambda.Function(this, 'IngestionLambda', {
       functionName: 'moment-ingestion',
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
+      handler: 'ingestion.ingestion',
       code: lambda.Code.fromAsset('../backend/lambdas/ingestion'),
       environment: {
         PHOTO_UPLOADED_TOPIC_ARN: photoUploadedTopic.topicArn,
@@ -185,7 +159,7 @@ export class IconicMomentStack extends cdk.Stack {
     const resizePhoto = new lambda.Function(this, 'ResizeLambda', {
       functionName: 'resize-photo',
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
+      handler: 'resize_image.resize_image',
       code: lambda.Code.fromAsset('../backend/lambdas/resize', {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
@@ -214,37 +188,7 @@ export class IconicMomentStack extends cdk.Stack {
     resizedImageBucket.grantPut(resizePhoto);
     photoTable.grantWriteData(resizePhoto);
 
-
-
-    // ============================================
-    // Lambda — Moderate worker
-    // ============================================
-    const moderateLambda = new lambda.Function(this, 'ModerateLambda', {
-      functionName: 'moderate-photo',
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
-      code: lambda.Code.fromAsset('../backend/lambdas/moderate'),
-      timeout: cdk.Duration.seconds(60),
-      environment: {
-        RAW_BUCKET: imageBucket.bucketName,
-        PHOTO_TABLE: photoTable.tableName,
-      },
-    });
-
-    // Wire SQS queue as event source for the moderate Lambda
-    moderateLambda.addEventSource(
-      new lambda_event_sources.SqsEventSource(moderateQueue, { batchSize: 1 })
-    )
-
-    // Permissions for the moderate Lambda
-    imageBucket.grantRead(moderateLambda);
-    photoTable.grantWriteData(moderateLambda);
-
-    // Allow moderate lambda to call Rekognition
-    moderateLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['rekognition:DetectModerationLabels'],
-      resources: ['*'],
-    }));
+    
 
     // ============================================
     // Lambda — Caption worker
@@ -252,8 +196,8 @@ export class IconicMomentStack extends cdk.Stack {
     const captionLambda = new lambda.Function(this, 'CaptionLambda', {
       functionName: 'caption-photo',
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
-      code: lambda.Code.fromAsset('../backend/lambdas/caption'),
+      handler: 'call_bedrock.call_bedrock',
+      code: lambda.Code.fromAsset('../backend/lambdas/bedrock'),
       timeout: cdk.Duration.seconds(120),
       environment: {
         RAW_BUCKET: imageBucket.bucketName,
@@ -287,7 +231,7 @@ export class IconicMomentStack extends cdk.Stack {
     const getPhotosLambda = new lambda.Function(this, 'GetPhotosLambda', {
       functionName: 'get-photos',
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
+      handler: 'get_photos.get_photos',
       code: lambda.Code.fromAsset('../backend/lambdas/photo'),
       environment: {
         PHOTO_TABLE: photoTable.tableName,
@@ -305,7 +249,7 @@ export class IconicMomentStack extends cdk.Stack {
     const uploadUrlLambda = new lambda.Function(this, 'UploadUrlLambda', {
       functionName: 'get-upload-url',
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
+      handler: 'upload_url.upload_url',
       code: lambda.Code.fromAsset('../backend/lambdas/upload_url'),
       environment: {
         RAW_BUCKET: imageBucket.bucketName,

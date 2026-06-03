@@ -14,7 +14,7 @@ class DecimalEncoder(json.JSONEncoder):
             return int(obj) if obj % 1 == 0 else float(obj)
         return super().default(obj)
 
-def handler(event, context):
+def get_photos(event, context):
     table = dynamodb.Table(PHOTO_TABLE)
 
     # Scan the DynamoDB table for items with status "approved"
