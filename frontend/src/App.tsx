@@ -3,23 +3,19 @@ import type { Moment } from './data/moments';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Gallery from './components/Gallery';
-import LoginModal from './components/LoginModal';
-import SignUpModal from './components/SignUpModal';
 import MomentModal from './components/MomentModal';
 import UploadModal from './components/UploadModal';
 
 const API_URL = 'https://l4fznwuful.execute-api.us-east-1.amazonaws.com/prod/photos';
 
-type Modal = 'login' | 'signup' | null;
-
 function App() {
   const [moments, setMoments] = useState<Moment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeModal, setActiveModal] = useState<Modal>(null);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [showRejected, setShowRejected] = useState(false);
 
   function mapMoments(data: any[]): Moment[] {
     return data.map((item: any) => ({
@@ -72,8 +68,9 @@ function App() {
           setPendingCount((n) => Math.max(0, n - 1));
           clearInterval(poll);
         } else if (!photoSeen && attempts >= 8) {
-          // Photo never appeared after 24s — rejected by moderation
           setPendingCount((n) => Math.max(0, n - 1));
+          setShowRejected(true);
+          setTimeout(() => setShowRejected(false), 5000);
           clearInterval(poll);
         } else if (attempts >= 20) {
           setMoments(updated);
@@ -93,10 +90,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <Header
-        onLoginClick={() => setActiveModal('login')}
-        onSignUpClick={() => setActiveModal('signup')}
-      />
+      <Header />
 
       <main className="pt-16">
         <Hero onExplore={scrollToGallery} />
@@ -128,20 +122,6 @@ function App() {
         )}
       </main>
 
-      {activeModal === 'login' && (
-        <LoginModal
-          onClose={() => setActiveModal(null)}
-          onSwitchToSignUp={() => setActiveModal('signup')}
-        />
-      )}
-
-      {activeModal === 'signup' && (
-        <SignUpModal
-          onClose={() => setActiveModal(null)}
-          onSwitchToLogin={() => setActiveModal('login')}
-        />
-      )}
-
       {selectedMoment && (
         <MomentModal
           moment={selectedMoment}
@@ -151,6 +131,15 @@ function App() {
 
       {showUpload && (
         <UploadModal onClose={() => setShowUpload(false)} onUploadSuccess={handleUploadSuccess} />
+      )}
+
+      {showRejected && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 text-sm shadow-lg">
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          </svg>
+          Photo was not uploaded — it didn't pass moderation.
+        </div>
       )}
     </div>
   );
