@@ -22,9 +22,9 @@ agent = Agent(
     system_prompt = (
         '''
             You are a content moderator for a soccer photo gallery. Look at the image and determine:
-                - Set 'is_soccer_moment' to false if the image is not related to soccer/football.
+                - Set 'is_soccer_moment' to false if the image is not related to soccer/football. Set to true if this shows a clear iconic, famous, historically significant soccer moment - a famous incident, a game winning moment, a career defining moment, legendary comebacks. Generic training sessions, random corner, free, penalty kicks, youth/college soccer should be false.
                 - Set 'is_appropriate' to false if the image contains nudity, sexual content, or other material not suitable for a general audience. Shirtless celebrations, slide tackles, physical contact are normal for soccer and should be appropriate.
-                - rejection_reason: short reaosn if rejected, empty string if approved.
+                - rejection_reason: short reason if rejected, empty string if approved.
         '''
     )
 )

@@ -112,7 +112,7 @@ export class IconicMomentStack extends cdk.Stack {
     // Create the SQS queue for captioning tasks, with the DLQ configured
     const captionQueue = new sqs.Queue(this, 'CaptionQueue', {
       queueName: 'iconic-caption-queue',
-      visibilityTimeout: cdk.Duration.seconds(120),
+      visibilityTimeout: cdk.Duration.seconds(300),
       deadLetterQueue: {
         queue: captionDLQ,
         maxReceiveCount: 3,

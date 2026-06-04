@@ -15,4 +15,3 @@ def publish_sns(event, context):
         }),
     )
     print(f"Published to SNS photo_id={event['photo_id']}")
-s

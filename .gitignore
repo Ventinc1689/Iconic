@@ -1,0 +1,5 @@
+ground_truth.json
+test_accuracy.py
+test_photos/
+test_results_*.json
+.DS_Store
