@@ -8,19 +8,7 @@ interface MomentCardProps {
 }
 
 export default function MomentCard({ moment, onClick, loading = false }: MomentCardProps) {
-  const [likes, setLikes] = useState(moment.likes);
-  const [liked, setLiked] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
-
-  function handleLike(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (liked) {
-      setLikes((n) => n - 1);
-    } else {
-      setLikes((n) => n + 1);
-    }
-    setLiked((v) => !v);
-  }
 
   if (loading) {
     return (
@@ -97,40 +85,16 @@ export default function MomentCard({ moment, onClick, loading = false }: MomentC
           {moment.caption}
         </p>
 
-        {/* Tags + like */}
+        {/* Tags */}
         <div
           style={{ animationDelay: '180ms' }}
-          className="fade-in flex items-center justify-between pt-1 mt-auto"
+          className="fade-in flex flex-wrap gap-1.5 pt-1 mt-auto"
         >
-          <div className="flex flex-wrap gap-1.5">
-            {moment.tags.map((tag) => (
-              <span key={tag} className={`text-xs px-2 py-0.5 rounded-full ${moment.tagColor}`}>
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          <button
-            onClick={handleLike}
-            className={`flex items-center gap-1.5 text-xs transition-colors duration-150 ml-2 flex-shrink-0 ${
-              liked ? 'text-green-400' : 'text-white/40 hover:text-white/70'
-            }`}
-          >
-            <svg
-              className="w-4 h-4"
-              fill={liked ? 'currentColor' : 'none'}
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
-              />
-            </svg>
-            {likes.toLocaleString()}
-          </button>
+          {moment.tags.map((tag) => (
+            <span key={tag} className={`text-xs px-2 py-0.5 rounded-full ${moment.tagColor}`}>
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
     </article>

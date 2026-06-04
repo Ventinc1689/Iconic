@@ -27,7 +27,6 @@ function App() {
       year:        Number(item.match_year) || new Date(item.uploaded_at).getFullYear(),
       caption:     item.caption      ?? 'Caption pending...',
       tags:        item.tags         ?? [],
-      likes:       Number(item.likes) || 0,
       emoji:       item.emoji        ?? '⚽',
       color:       item.color        ?? 'bg-zinc-900',
       tagColor:    item.tag_color    ?? 'bg-zinc-700 text-zinc-200',

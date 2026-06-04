@@ -38,7 +38,7 @@ export default function Gallery({ moments, pendingCount = 0, onCardClick, onUplo
           {Array.from({ length: pendingCount }).map((_, i) => (
             <MomentCard
               key={`pending-${i}`}
-              moment={{ id: '', title: '', player: '', match: '', competition: '', year: 0, caption: '', tags: [], likes: 0, emoji: '', color: '', tagColor: '' }}
+              moment={{ id: '', title: '', player: '', match: '', competition: '', year: 0, caption: '', tags: [], emoji: '', color: '', tagColor: '' }}
               onClick={() => {}}
               loading
             />

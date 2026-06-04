@@ -7,7 +7,6 @@ export interface Moment {
   match: string;
   caption: string;
   tags: string[];
-  likes: number;
   emoji: string;
   color: string; 
   tagColor: string; 
