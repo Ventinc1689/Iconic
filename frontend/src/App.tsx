@@ -35,7 +35,7 @@ function App() {
   }
 
   async function fetchMoments() {
-    const res = await fetch(API_URL);
+    const res = await fetch(`${API_URL}/photos`);
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const data = await res.json();
     return mapMoments(data);
