@@ -6,7 +6,7 @@ import Gallery from './components/Gallery';
 import MomentModal from './components/MomentModal';
 import UploadModal from './components/UploadModal';
 
-const API_URL = 'https://l4fznwuful.execute-api.us-east-1.amazonaws.com/prod/photos';
+const API_URL = import.meta.env.VITE_API_BASE;
 
 function App() {
   const [moments, setMoments] = useState<Moment[]>([]);

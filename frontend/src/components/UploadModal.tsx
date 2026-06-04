@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const API_BASE = 'https://l4fznwuful.execute-api.us-east-1.amazonaws.com/prod';
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 type UploadState = 'idle' | 'uploading' | 'done' | 'error';
 
