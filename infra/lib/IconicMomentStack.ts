@@ -11,6 +11,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
 
 export class IconicMomentStack extends cdk.Stack {
@@ -125,6 +127,115 @@ export class IconicMomentStack extends cdk.Stack {
 
 
     // ============================================
+    // Lambda — Validate 
+    // ============================================
+    const validateLambda = new lambda.Function(this, 'ValidateLambda', {
+      functionName: 'validate-photo',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'validate.validate',
+      code: lambda.Code.fromAsset('../backend/lambdas/validate', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output --platform manylinux2014_x86_64 --only-binary=:all: && cp -r . /asset-output',
+          ],
+        },
+      }),
+      timeout: cdk.Duration.seconds(60)
+    })
+
+    // Permissions for the validate Lambda
+    imageBucket.grantRead(validateLambda);
+
+    // Allow validate lambda to call Bedrock for image validation
+    validateLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: [
+        'arn:aws:bedrock:*::foundation-model/*anthropic.claude-sonnet-4-5-20250929-v1:0',
+        'arn:aws:bedrock:*:*:inference-profile/*anthropic.claude-sonnet-4-5-20250929-v1:0',
+      ],
+    }));
+
+
+
+    // ============================================
+    // Lambda Function for photo rejection
+    // ============================================
+    const rejectLambda = new lambda.Function(this, 'RejectLambda', {
+      functionName: 'reject-photo',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'reject_photo.reject_photo',
+      code: lambda.Code.fromAsset('../backend/lambdas/reject'),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        PHOTO_TABLE: photoTable.tableName,
+      },
+    });
+
+    // Permission for rejection lambda
+    photoTable.grantReadWriteData(rejectLambda)
+
+
+
+    // ============================================
+    // Lambda — Publish to SNS 
+    // ============================================
+    const publishLambda = new lambda.Function(this, 'PublishLambda', {
+      functionName: 'iconic-publish-sns',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'publish_sns.publish_sns',
+      code: lambda.Code.fromAsset('../backend/lambdas/publish'),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        PHOTO_UPLOADED_TOPIC_ARN: photoUploadedTopic.topicArn,
+      },
+    });
+ 
+    // Permission for publish lambda
+    photoUploadedTopic.grantPublish(publishLambda);
+
+
+
+    // ============================================
+    // Step Function — Photo Validation Workflow
+    // ============================================
+
+    // validate the photo
+    const validateTask = new tasks.LambdaInvoke(this, 'ValidatePhoto', {
+      lambdaFunction: validateLambda,
+      outputPath: '$.Payload'
+    })
+
+    // reject photo
+    const rejectTask = new tasks.LambdaInvoke(this, 'RejectPhoto', {
+      lambdaFunction: rejectLambda,
+      outputPath: '$.Payload'
+    })
+
+    // publish to sns
+    const publishTask = new tasks.LambdaInvoke(this, 'PublishSNS', {
+      lambdaFunction: publishLambda,
+      outputPath: '$.Payload'
+    })
+
+    // Choice state
+    const isValidChoice = new sfn.Choice(this, 'IsValidMoment')
+      .when(sfn.Condition.booleanEquals('$.is_valid', true), publishTask)
+      .otherwise(rejectTask)
+    
+    // Chain: validate -> choice -> reject or publish
+    const definition = validateTask.next(isValidChoice)
+
+    const stateMachine = new sfn.StateMachine(this, 'PhotoValidationStateMachine', {
+      stateMachineName: 'iconic-photo-validation',
+      definitionBody: sfn.DefinitionBody.fromChainable(definition),
+      timeout: cdk.Duration.minutes(5),
+    });
+
+
+
+    // ============================================
     // Lambda Function for S3 Ingestion
     // ============================================
     const ingestionLambda = new lambda.Function(this, 'IngestionLambda', {
@@ -133,8 +244,8 @@ export class IconicMomentStack extends cdk.Stack {
       handler: 'ingestion.ingestion',
       code: lambda.Code.fromAsset('../backend/lambdas/ingestion'),
       environment: {
-        PHOTO_UPLOADED_TOPIC_ARN: photoUploadedTopic.topicArn,
         PHOTO_TABLE: photoTable.tableName,
+        STATE_MACHINE_ARN: stateMachine.stateMachineArn,
       }
     });
 
@@ -144,12 +255,10 @@ export class IconicMomentStack extends cdk.Stack {
       new s3n.LambdaDestination(ingestionLambda)
     );
 
-    // ============================================
-    // Permissions
-    // ============================================
+    // Permissions for ingestion lambda
     imageBucket.grantRead(ingestionLambda);
-    photoUploadedTopic.grantPublish(ingestionLambda);
     photoTable.grantWriteData(ingestionLambda);
+    stateMachine.grantStartExecution(ingestionLambda)
 
 
 

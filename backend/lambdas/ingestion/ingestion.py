@@ -4,10 +4,11 @@ import uuid
 import boto3
 from datetime import datetime, timezone
 
-sns = boto3.client('sns')
 dynamodb = boto3.resource('dynamodb')
-PHOTO_UPLOADED_TOPIC_ARN = os.environ['PHOTO_UPLOADED_TOPIC_ARN']
+step_function = boto3.client('stepfunctions')
+
 PHOTO_TABLE = os.environ['PHOTO_TABLE']
+STATE_MACHINE_ARN = os.environ['STATE_MACHINE_ARN']
 
 
 # Lambda function to handle S3 events when a new image is uploaded to the bucket
@@ -28,17 +29,14 @@ def ingestion(event, context):
             'uploaded_at': datetime.now(timezone.utc).isoformat()
         })
 
-        # Builds the message payload to be published to the SNS topic
-        payload = {
-            'photo_id': photo_id,
-            'bucket': bucket,
-            'key': key
-        }
-
-        # Publish the message to the SNS topic
-        sns.publish(
-            TopicArn = PHOTO_UPLOADED_TOPIC_ARN,
-            Message = json.dumps(payload)
+        # Start step function 
+        step_function.start_execution(
+            stateMachineArn = STATE_MACHINE_ARN,
+            input = json.dumps({
+                'photo_id': photo_id,
+                'bucket': bucket,
+                'key': key,
+            })
         )
 
-        print(f"Published to SNS — bucket: {bucket}, photo_status=pending")
+        print(f"Started step function for photo_id={photo_id}")

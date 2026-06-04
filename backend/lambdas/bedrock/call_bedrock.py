@@ -12,8 +12,6 @@ PHOTO_TABLE = os.environ['PHOTO_TABLE']
 MODEL_ID = 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
 
 class MomentAnalysis(BaseModel):
-    is_soccer_moment: bool
-    is_appropriate: bool
     title: str
     player: list[str]
     game: str
@@ -30,8 +28,6 @@ agent = Agent(
         '''
             You are a football expert analyzing an iconic soccer moment. Look at this image and identify the moment.
             Rules: 
-                - Set 'is_soccer_moment' to false if the image is not related to soccer/football.
-                - Set 'is_appropriate' to false if the image contains nudity, sexual content, or other material not suitable for a general audience. Shirtless celebrations, slide tackles, physical contact are normal for soccer and should be appropriate.
                 - Title should be 1-3 words. Caption should be 2-3 sentences, describing what happened and why it matters historically.
                 - If you cannot identity specific details but it is a soccer moment, make your best guess.
         '''
@@ -66,32 +62,6 @@ def call_bedrock(event, context):
         ])
 
         data = result.output
-
-        # Determine if the photo should be rejected based on the model's analysis
-        if not data.is_soccer_moment:
-            rejection_reason = 'Not a soccer moment'
-        elif not data.is_appropriate:
-            rejection_reason = 'Inappropriate content'
-        else:
-            rejection_reason = None
-
-        # If there's a reason to reject the photo, update DynamoDB and skip saving the caption
-        if rejection_reason:
-            print(f"Rejected photo_id={photo_id} — {rejection_reason}")
-            table.update_item(
-                Key={'photo_id': photo_id},
-                UpdateExpression='''SET 
-                    photo_status = :photo_status, 
-                    caption_status = :caption_status, 
-                    rejection_reason = :rejection_status
-                ''',
-                ExpressionAttributeValues={
-                    ':photo_status': 'rejected',
-                    ':caption_status': 'done',
-                    ':rejection_status': rejection_reason,
-                },
-            )
-            return
 
         # Save the caption to DynamoDB
         table.update_item(
