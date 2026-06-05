@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Moment } from '../data/moments';
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -38,35 +40,20 @@ export default function MomentModal({ moment, onClose }: MomentModalProps) {
     setInput('');
     setLoading(true);
 
-    const systemPrompt = `You are an expert football historian and analyst discussing a specific iconic moment.
-
-Moment: ${moment.title}
-Player(s): ${moment.player}
-Match: ${moment.match}
-Year: ${moment.year}
-Competition: ${moment.competition}
-Caption: ${moment.caption}
-
-Answer questions about this moment with passion and detail. Keep responses concise but insightful — 2-4 sentences unless more detail is explicitly requested.`;
-
-    const apiMessages = [...messages, userMsg].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: apiMessages,
+          question: text,
+          moment: {
+            title:       moment.title,
+            player:      moment.player,
+            game:        moment.match,
+            competition: moment.competition,
+            year:        moment.year,
+            caption:     moment.caption,
+          },
         }),
       });
 
@@ -75,8 +62,7 @@ Answer questions about this moment with passion and detail. Keep responses conci
       }
 
       const data = await response.json();
-      const assistantText =
-        data.content?.[0]?.type === 'text' ? data.content[0].text : 'No response.';
+      const assistantText = data.reply ?? 'No response.';
 
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }]);
     } catch (err) {
@@ -84,7 +70,7 @@ Answer questions about this moment with passion and detail. Keep responses conci
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I couldn\'t reach the AI right now. Please try again.',
+          content: "Sorry, I couldn't reach the AI right now. Please try again.",
         },
       ]);
     } finally {
@@ -166,9 +152,7 @@ Answer questions about this moment with passion and detail. Keep responses conci
                   <div
                     key={i}
                     className={`text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'text-right'
-                        : 'text-left'
+                      msg.role === 'user' ? 'text-right' : 'text-left'
                     }`}
                   >
                     <span

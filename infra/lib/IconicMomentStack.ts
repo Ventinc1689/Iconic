@@ -378,6 +378,37 @@ export class IconicMomentStack extends cdk.Stack {
 
 
     // ============================================
+    // Lambda — Chat handler
+    // ============================================
+    const chatHandler = new lambda.Function(this, 'ChatHandler', {
+      functionName: 'iconic-chat',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'chat_handler.chat_handler',
+      code: lambda.Code.fromAsset('../backend/lambdas/chat', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output --platform manylinux2014_x86_64 --only-binary=:all: && cp -r . /asset-output',
+          ],
+        },
+      }),
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 256,
+    })
+
+    // Bedrock permissions
+    chatHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+      resources: [
+        'arn:aws:bedrock:*::foundation-model/*anthropic.claude-sonnet-4-5-20250929-v1:0',
+        'arn:aws:bedrock:*:*:inference-profile/*anthropic.claude-sonnet-4-5-20250929-v1:0',
+      ],
+    }));
+
+
+
+    // ============================================
     // API Gateway
     // ============================================
     const api = new apigateway.RestApi(this, 'IconicAPI', {
@@ -398,6 +429,10 @@ export class IconicMomentStack extends cdk.Stack {
     const uploadUrl = api.root.addResource('upload-url');
     uploadUrl.addMethod('POST', new apigateway.LambdaIntegration(uploadUrlLambda));
 
+    // Post /chat for ai chatting
+    const chat = api.root.addResource('chat');
+    chat.addMethod('POST', new apigateway.LambdaIntegration(chatHandler));
+
 
 
     // ============================================
@@ -417,8 +452,8 @@ export class IconicMomentStack extends cdk.Stack {
     })
 
     new cdk.CfnOutput(this, 'ApiUrl', {
-      value: api.url + 'photos',
-      description: 'URL for the approved photos API endpoint',
+      value: api.url,
+      description: 'URL for the API endpoint',
     })
   }
 }
