@@ -18,7 +18,7 @@ Media platform allowing fans to upload memorial soccer moments with AI-powered i
  - Tailwind CSS
 
 ## Backend 
- - AWS (S3, Lambda, DynamoDB, Bedrock, SNS/SQS, Step Functions, CDK)
+ - AWS (S3, Lambda, DynamoDB, Bedrock, API Gateway, SNS/SQS, Step Functions, CDK)
  - Pydantic AI
  - Python
  - Typescript
