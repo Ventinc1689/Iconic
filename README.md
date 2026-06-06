@@ -2,7 +2,7 @@
 
 Media platform allowing fans to upload memorial soccer moments with AI-powered image validation, captioning, curation, and AI chatbot per gallery moment.
 
-Link: [Iconic](https://main.d3sbu47wcdro2v.amplifyapp.com/)
+[Iconic](https://main.d3sbu47wcdro2v.amplifyapp.com/)
 
 <br>
 
