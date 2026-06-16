@@ -7,7 +7,9 @@ Media platform allowing fans to upload memorial soccer moments with AI-powered i
 <br>
 
 
-<img width="1471" height="850" alt="Screenshot 2026-06-16 at 10 56 32 AM" src="https://github.com/user-attachments/assets/0855c8b8-3e36-49fb-839f-0dc623c4d0c8" />
+<img width="1448" height="809" alt="Screenshot 2026-06-16 at 10 57 29 AM" src="https://github.com/user-attachments/assets/9e917345-e965-436b-8aa8-8ddca13b62b9" />
+
+<br>
 
 <img width="980" height="636" alt="image" src="https://github.com/user-attachments/assets/920ef41b-ebf4-48da-825a-99fe0a964eca" />
 
