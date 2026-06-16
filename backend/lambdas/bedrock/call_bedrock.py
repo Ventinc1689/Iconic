@@ -26,7 +26,7 @@ agent = Agent(
     output_type = MomentAnalysis,
     system_prompt = (
         '''
-            You are a football expert analyzing an iconic soccer moment. Look at this image and identify the moment. Title should be 1-3 words. Caption should be 2-3 sentences, describing what happened and why it matters historically.
+            You are a football expert analyzing an iconic soccer moment. Look at this image and identify the moment. Title should be 1-5 words. Caption should be 2-3 sentences, describing what happened and why it matters historically. If there is already a famous title/name the moment is known for, use that as the title instead of generating a new one.
         '''
     )
 )

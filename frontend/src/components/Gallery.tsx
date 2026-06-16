@@ -1,6 +1,16 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { Moment } from '../data/moments';
 import MomentCard from './MomentCard';
+
+const FILTERS = [
+  { label: 'All', key: null },
+  { label: 'World Cup', key: 'world cup' },
+  { label: 'Champions League', key: 'champions league' },
+  { label: 'Premier League', key: 'premier league' },
+  { label: 'La Liga', key: 'la liga' },
+] as const;
+
+type FilterKey = 'world cup' | 'champions league' | 'premier league' | 'la liga' | null;
 
 interface GalleryProps {
   moments: Moment[];
@@ -11,14 +21,23 @@ interface GalleryProps {
 
 export default function Gallery({ moments, pendingCount = 0, onCardClick, onUploadClick }: GalleryProps) {
   const ref = useRef<HTMLElement>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>(null);
+
+  const filteredMoments = activeFilter
+    ? moments.filter((m) => m.competition.toLowerCase().includes(activeFilter))
+    : moments;
+
+  const countLabel = activeFilter
+    ? `${filteredMoments.length} of ${moments.length} moments`
+    : `${moments.length} iconic moments`;
 
   return (
     <section ref={ref} id="gallery" className="px-6 pb-24">
       <div className="mx-auto max-w-7xl">
-        <div className="flex items-end justify-between mb-8">
+        <div className="flex items-end justify-between mb-6">
           <div>
             <h2 className="font-serif text-3xl font-bold text-white mb-1">Gallery</h2>
-            <p className="text-white/40 text-sm">{moments.length} iconic moments</p>
+            <p className="text-white/40 text-sm">{countLabel}</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-xs text-white/30">
@@ -34,6 +53,22 @@ export default function Gallery({ moments, pendingCount = 0, onCardClick, onUplo
           </div>
         </div>
 
+        <div className="flex items-center gap-2 mb-8 overflow-x-auto scrollbar-none whitespace-nowrap">
+          {FILTERS.map(({ label, key }) => (
+            <button
+              key={label}
+              onClick={() => setActiveFilter(key)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors duration-150 ${
+                activeFilter === key
+                  ? 'bg-green-500 border-green-500 text-black'
+                  : 'bg-transparent border-white/15 text-white/50 hover:border-white/30 hover:text-white/80'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: pendingCount }).map((_, i) => (
             <MomentCard
@@ -43,7 +78,7 @@ export default function Gallery({ moments, pendingCount = 0, onCardClick, onUplo
               loading
             />
           ))}
-          {moments.map((moment) => (
+          {filteredMoments.map((moment) => (
             <MomentCard
               key={moment.id}
               moment={moment}

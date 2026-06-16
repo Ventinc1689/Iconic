@@ -89,21 +89,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <Header />
+        <Header momentCount={moments.length} />
 
       <main className="pt-16">
         <Hero onExplore={scrollToGallery} />
-
-        {loading && (
-          <div className="flex items-center justify-center py-24">
-            <div className="flex items-center gap-3 text-white/40">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-bounce [animation-delay:0ms]"></span>
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-bounce [animation-delay:150ms]"></span>
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-bounce [animation-delay:300ms]"></span>
-              <span className="text-sm ml-2">Loading moments...</span>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="flex items-center justify-center py-24">
@@ -111,10 +100,10 @@ function App() {
           </div>
         )}
 
-        {!loading && !error && (
+        {!error && (
           <Gallery
             moments={moments}
-            pendingCount={pendingCount}
+            pendingCount={loading ? 6 : pendingCount}
             onCardClick={setSelectedMoment}
             onUploadClick={() => setShowUpload(true)}
           />
